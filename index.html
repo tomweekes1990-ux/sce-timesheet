@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SCE Timesheet Platform</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --o:#e05c2a;--o2:rgba(224,92,42,0.12);--o3:rgba(224,92,42,0.06);
+  --bg:#0a0a0a;--s1:#131313;--s2:#1a1a1a;--s3:#202020;
+  --b1:#1e1e1e;--b2:#282828;--b3:#333;
+  --t1:#ddd5c5;--t2:#8a8278;--t3:#4a4540;--t4:#2e2b28;
+  --red:#c0392b;--green:#27ae60;--blue:#2980b9;
+  --mono:'DM Mono','Courier New',monospace;--disp:'Bebas Neue',sans-serif;
+  --r:8px;--r2:12px;
+}
+body{font-family:var(--mono);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden}
+input,textarea,select{font-family:var(--mono);background:transparent;border:none;outline:none;color:var(--t1);width:100%}
+input::placeholder,textarea::placeholder{color:var(--t4)}
+input[type=checkbox]{width:auto;accent-color:var(--o);cursor:pointer;transform:scale(1.2)}
+input[type=time]{color-scheme:dark}
+button{font-family:var(--mono);cursor:pointer;border:none}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+/* ── UTILS ── */
+.hidden{display:none!important}
+.flex{display:flex}.fc{flex-direction:column}.gap4{gap:4px}.gap8{gap:8px}.gap12{gap:12px}.gap16{gap:16px}
+.ai-c{align-items:center}.jc-sb{justify-content:space-between}.jc-c{justify-content:center}
+.f1{flex:1}.w100{width:100%}
+.fade-in{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin .8s linear infinite;display:inline-block}
+
+/* ── TOAST ── */
+#toast-container{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--s2);border:1px solid var(--b2);border-radius:var(--r);padding:10px 16px;font-size:11px;letter-spacing:1px;min-width:220px;animation:fadeIn .25s ease;display:flex;align-items:center;gap:8px}
+.toast.success{border-color:#2a5e3a;color:#4ade80}
+.toast.error{border-color:#5e2a2a;color:#f87171}
+.toast.info{border-color:var(--b3);color:var(--t2)}
+
+/* ── BUTTONS ── */
+.btn{padding:8px 18px;border-radius:var(--r);font-size:10px;letter-spacing:1.5px;cursor:pointer;transition:all .18s;border:1px solid var(--b2);background:var(--s2);color:var(--t2)}
+.btn:hover{border-color:var(--b3);color:var(--t1)}
+.btn-o{background:var(--o);border-color:var(--o);color:#fff}
+.btn-o:hover{background:#c94e20;border-color:#c94e20}
+.btn-ghost{background:transparent;border-color:var(--b1);color:var(--t3)}
+.btn-ghost:hover{border-color:var(--o);color:var(--o)}
+.btn-danger{background:transparent;border-color:#5e2a2a;color:#f87171}
+.btn-danger:hover{background:#5e2a2a}
+.btn-sm{padding:5px 12px;font-size:9px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── CARDS ── */
+.card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r2)}
+.card-head{padding:12px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between}
+.card-label{font-size:9px;letter-spacing:2.5px;color:var(--o)}
+.card-body{padding:20px}
+
+/* ── FIELD ── */
+.field{margin-bottom:16px}
+.field-label{font-size:9px;letter-spacing:2px;color:var(--t3);margin-bottom:6px}
+.field-wrap{border-bottom:1px solid var(--b2);padding:4px 0;transition:border-color .2s}
+.field-wrap:focus-within{border-bottom-color:var(--o)}
+.field-input{font-size:13px}
+
+/* ══════════════════════════════════════
+   AUTH SCREEN
+══════════════════════════════════════ */
+#auth-screen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:var(--bg);
+  background-image:radial-gradient(ellipse at 20% 50%,rgba(224,92,42,0.06) 0%,transparent 60%),
+                   radial-gradient(ellipse at 80% 20%,rgba(224,92,42,0.04) 0%,transparent 50%);
+}
+.auth-box{width:400px;max-width:95vw}
+.auth-logo{display:flex;align-items:center;gap:14px;margin-bottom:36px}
+.auth-logo-mark{width:48px;height:48px;background:var(--o);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-size:28px;color:#fff;flex-shrink:0}
+.auth-logo-name{font-family:var(--disp);font-size:22px;letter-spacing:2px;line-height:1.1}
+.auth-logo-sub{font-size:9px;color:var(--t3);letter-spacing:1.5px;margin-top:2px}
+.auth-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r2);padding:28px}
+.auth-title{font-family:var(--disp);font-size:28px;letter-spacing:3px;color:var(--o);margin-bottom:4px}
+.auth-sub{font-size:10px;color:var(--t3);letter-spacing:1px;margin-bottom:24px}
+.auth-toggle{font-size:10px;color:var(--t3);margin-top:16px;text-align:center}
+.auth-toggle a{color:var(--o);cursor:pointer;text-decoration:none}
+.auth-toggle a:hover{text-decoration:underline}
+.auth-error{font-size:11px;color:#f87171;margin-top:8px;padding:8px 12px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;display:none}
+
+/* ══════════════════════════════════════
+   APP SHELL
+══════════════════════════════════════ */
+#app-screen{display:none;flex-direction:column;min-height:100vh}
+
+/* HEADER */
+#app-header{
+  background:var(--s1);border-bottom:1px solid var(--b1);
+  padding:0 28px;height:56px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:200;flex-shrink:0;
+}
+.hdr-logo{display:flex;align-items:center;gap:12px}
+.hdr-mark{width:34px;height:34px;background:var(--o);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-size:20px;color:#fff;flex-shrink:0}
+.hdr-name{font-family:var(--disp);font-size:16px;letter-spacing:2px}
+.hdr-sub{font-size:8px;color:var(--t3);letter-spacing:1px;margin-top:1px}
+.hdr-right{display:flex;align-items:center;gap:12px}
+.hdr-user{font-size:10px;color:var(--t3);letter-spacing:1px}
+.hdr-role{font-size:8px;padding:2px 8px;border-radius:4px;letter-spacing:1.5px;margin-left:6px}
+.role-admin{background:rgba(224,92,42,0.15);color:var(--o);border:1px solid rgba(224,92,42,0.3)}
+.role-employee{background:rgba(41,128,185,0.12);color:#5dade2;border:1px solid rgba(41,128,185,0.25)}
+
+/* TAB NAV */
+#tab-nav{
+  background:var(--s1);border-bottom:1px solid var(--b1);
+  padding:0 28px;display:flex;gap:0;flex-shrink:0;
+}
+.tab-item{
+  padding:12px 20px;font-size:10px;letter-spacing:1.5px;
+  color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .15s;white-space:nowrap;
+}
+.tab-item:hover{color:var(--t2)}
+.tab-item.active{color:var(--o);border-bottom-color:var(--o)}
+
+/* CONTENT */
+#tab-content{flex:1;overflow-y:auto;padding:28px}
+
+/* ══════════════════════════════════════
+   TIMESHEET TAB
+══════════════════════════════════════ */
+.ts-shell{display:flex;gap:0;height:calc(100vh - 56px - 42px - 56px)}
+#ts-day-nav{
+  width:170px;flex-shrink:0;background:var(--s1);
+  border-right:1px solid var(--b1);
+  display:flex;flex-direction:column;padding:16px 0;overflow-y:auto;
+}
+.nav-lbl{font-size:8px;letter-spacing:2.5px;color:var(--t3);padding:0 14px;margin-bottom:8px}
+.day-nav-item{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 14px;cursor:pointer;
+  border-left:2px solid transparent;transition:all .12s;
+}
+.day-nav-item:hover{background:rgba(255,255,255,0.025)}
+.day-nav-item.active{border-left-color:var(--o);background:var(--o3)}
+.day-nav-item.active .dni-name{color:var(--o)}
+.dni-dot{width:6px;height:6px;border-radius:50%;border:1px solid var(--b3);flex-shrink:0;transition:all .2s}
+.day-nav-item.filled .dni-dot{background:var(--o);border-color:var(--o)}
+.dni-name{font-size:10px;letter-spacing:1px;color:var(--t3)}
+.dni-hrs{font-size:9px;color:var(--t4);margin-left:auto}
+.day-nav-item.filled .dni-hrs{color:var(--o)}
+.nav-div{height:1px;background:var(--b1);margin:10px 0}
+.nav-summary-btn{
+  margin:4px 10px;padding:8px 12px;
+  border-radius:var(--r);border:1px solid var(--b2);
+  background:transparent;color:var(--t3);
+  font-size:9px;letter-spacing:1.5px;cursor:pointer;transition:all .18s;text-align:left;
+}
+.nav-summary-btn:hover,.nav-summary-btn.active{border-color:var(--o);color:var(--o);background:var(--o3)}
+.nav-week-total{padding:10px 14px;font-size:8px;color:var(--t3);letter-spacing:1px}
+.nav-week-total span{color:var(--o);font-size:14px;display:block;margin-top:2px}
+
+#ts-main{flex:1;overflow-y:auto;padding:24px 28px}
+
+/* Setup */
+.ts-setup-title{font-family:var(--disp);font-size:36px;letter-spacing:4px;color:var(--o);margin-bottom:4px}
+.ts-setup-sub{font-size:10px;color:var(--t3);letter-spacing:2px;margin-bottom:22px}
+.setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 32px}
+.setup-cell{padding:10px 0;border-bottom:1px solid var(--b1)}
+
+/* Day view */
+.day-title{font-family:var(--disp);font-size:38px;letter-spacing:4px;color:var(--o);line-height:1;margin-bottom:4px}
+.day-date-lbl{font-size:10px;color:var(--t3);letter-spacing:2px;margin-bottom:22px}
+.prog-bar{height:2px;background:var(--b1);border-radius:1px;margin-bottom:18px;overflow:hidden}
+.prog-fill{height:100%;background:var(--o);border-radius:1px;transition:width .4s ease}
+.time-grid{display:grid;grid-template-columns:1fr 1fr 1fr 80px 80px;gap:16px;align-items:end}
+.computed-val{font-size:20px;color:var(--o);font-weight:500;padding:2px 0}
+.computed-val.empty{color:var(--b3);font-size:15px}
+.toggles{display:flex;gap:20px}
+.toggle-item{display:flex;align-items:center;gap:7px}
+.toggle-item label{font-size:11px;color:var(--t3);letter-spacing:1px;cursor:pointer}
+/* Work items */
+.work-list{display:flex;flex-direction:column;gap:6px}
+.work-item{display:flex;gap:8px;align-items:flex-start;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:9px 12px;transition:border-color .15s;animation:fadeIn .18s ease}
+.work-item:focus-within{border-color:var(--b2)}
+.work-num{font-size:10px;color:var(--t4);margin-top:2px;flex-shrink:0;width:16px;text-align:right}
+.work-ta{font-size:12px;line-height:1.6;resize:none;flex:1;min-height:24px}
+.work-del{background:transparent;border:none;color:var(--t4);font-size:15px;cursor:pointer;transition:color .12s;padding:0 2px;flex-shrink:0;line-height:1}
+.work-del:hover{color:var(--red)}
+.add-work-btn{display:flex;align-items:center;gap:7px;background:transparent;border:1px dashed var(--b2);border-radius:var(--r);padding:9px 12px;color:var(--t3);font-size:11px;letter-spacing:1px;cursor:pointer;transition:all .18s;width:100%;margin-top:4px}
+.add-work-btn:hover{border-color:var(--o);color:var(--o)}
+/* Nav arrows */
+.day-arrows{display:flex;gap:8px;margin-top:22px}
+.arrow-btn{flex:1;padding:9px;border:1px solid var(--b2);border-radius:var(--r);background:transparent;color:var(--t3);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all .18s}
+.arrow-btn:hover{border-color:var(--o);color:var(--o)}
+.arrow-btn.primary{background:var(--o);border-color:var(--o);color:#fff}
+.arrow-btn.primary:hover{background:#c94e20}
+/* Save indicator */
+.save-bar{display:flex;align-items:center;gap:8px;font-size:9px;color:var(--t3);letter-spacing:1px;margin-bottom:16px}
+.save-dot{width:6px;height:6px;border-radius:50%;background:var(--t4);flex-shrink:0;transition:background .3s}
+.save-dot.saved{background:var(--green)}
+.save-dot.saving{background:var(--o);animation:pulse .8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Summary */
+.sum-title{font-family:var(--disp);font-size:36px;letter-spacing:4px;color:var(--o);margin-bottom:4px}
+.sum-sub{font-size:10px;color:var(--t3);letter-spacing:2px;margin-bottom:22px}
+.meta-grid{display:grid;grid-template-columns:repeat(3,1fr)}
+.meta-cell{padding:12px 18px;border-right:1px solid var(--b1);border-bottom:1px solid var(--b1)}
+.meta-cell:nth-child(3n){border-right:none}
+.meta-cell:nth-last-child(-n+3){border-bottom:none}
+.totals-bar{display:flex;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r2);overflow:hidden;margin-bottom:16px}
+.tot-cell{flex:1;padding:14px 18px;border-right:1px solid var(--b1)}
+.tot-cell:last-child{border-right:none}
+.tot-lbl{font-size:8px;letter-spacing:2px;color:var(--t3);margin-bottom:5px}
+.tot-val{font-size:20px;color:var(--o);font-weight:500}
+.tot-val.dim{color:var(--t1);font-size:15px}
+.sum-table{width:100%;border-collapse:collapse}
+.sum-table th{font-size:8px;letter-spacing:2px;color:var(--t3);padding:8px 12px;text-align:left;border-bottom:1px solid var(--b1);background:var(--s2)}
+.sum-table td{padding:10px 12px;font-size:12px;border-bottom:1px solid var(--b1);vertical-align:top}
+.sum-table tr:last-child td{border-bottom:none}
+.sum-table tr:hover td{background:rgba(255,255,255,0.015)}
+.td-day{font-size:10px;letter-spacing:1px;color:#aaa;font-weight:500;white-space:nowrap}
+.td-day.we{color:#555}
+.td-hrs{color:var(--o);font-weight:500;white-space:nowrap}
+.td-hrs.em{color:var(--b3)}
+.td-chk{text-align:center;color:var(--o);font-size:13px}
+.desc-pill{display:inline-flex;align-items:center;gap:3px;background:var(--s2);border:1px solid var(--b1);border-radius:4px;padding:2px 7px;font-size:10px;color:#aaa;margin:2px 2px 2px 0;line-height:1.5}
+.pill-dot{color:var(--o);font-size:7px}
+
+/* ══════════════════════════════════════
+   ADMIN TAB
+══════════════════════════════════════ */
+.admin-title{font-family:var(--disp);font-size:36px;letter-spacing:4px;color:var(--o);margin-bottom:4px}
+.admin-sub{font-size:10px;color:var(--t3);letter-spacing:2px;margin-bottom:22px}
+.admin-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.stat-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r2);padding:16px 20px}
+.stat-lbl{font-size:8px;letter-spacing:2px;color:var(--t3);margin-bottom:6px}
+.stat-val{font-size:26px;color:var(--o);font-weight:500}
+.stat-val.dim{color:var(--t1);font-size:18px}
+
+/* User table */
+.user-table{width:100%;border-collapse:collapse}
+.user-table th{font-size:8px;letter-spacing:2px;color:var(--t3);padding:10px 14px;text-align:left;border-bottom:1px solid var(--b1);background:var(--s2);white-space:nowrap}
+.user-table td{padding:12px 14px;font-size:12px;border-bottom:1px solid var(--b1);vertical-align:middle}
+.user-table tr:last-child td{border-bottom:none}
+.user-table tr:hover td{background:rgba(255,255,255,0.018)}
+.status-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;letter-spacing:1px}
+.status-active{background:rgba(39,174,96,0.12);color:#4ade80;border:1px solid rgba(39,174,96,0.25)}
+.status-disabled{background:rgba(192,57,43,0.1);color:#f87171;border:1px solid rgba(192,57,43,0.25)}
+.status-pending{background:rgba(243,156,18,0.1);color:#fbbf24;border:1px solid rgba(243,156,18,0.25)}
+.role-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;letter-spacing:1px}
+.rb-admin{background:rgba(224,92,42,0.12);color:var(--o);border:1px solid rgba(224,92,42,0.25)}
+.rb-emp{background:rgba(41,128,185,0.1);color:#5dade2;border:1px solid rgba(41,128,185,0.2)}
+.actions-cell{display:flex;gap:6px;flex-wrap:wrap}
+
+/* Timesheets viewer */
+.ts-viewer-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.back-btn{background:transparent;border:1px solid var(--b2);border-radius:var(--r);padding:6px 12px;color:var(--t3);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all .18s}
+.back-btn:hover{border-color:var(--o);color:var(--o)}
+.ts-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r2);padding:16px 20px;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+.ts-card:hover{border-color:var(--b3)}
+.ts-card-top{display:flex;justify-content:space-between;align-items:center}
+.ts-card-week{font-size:13px;color:var(--t1)}
+.ts-card-hrs{color:var(--o);font-size:13px;font-weight:500}
+.ts-card-meta{font-size:10px;color:var(--t3);margin-top:4px}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease}
+.modal-box{background:var(--s1);border:1px solid var(--b2);border-radius:var(--r2);padding:28px;width:420px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal-title{font-family:var(--disp);font-size:24px;letter-spacing:3px;color:var(--o);margin-bottom:16px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+
+/* Loading */
+#loading-overlay{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading-mark{width:56px;height:56px;background:var(--o);border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-size:32px;color:#fff}
+.loading-text{font-size:11px;color:var(--t3);letter-spacing:2px}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-overlay">
+  <div class="loading-mark">S</div>
+  <div class="loading-text">CONNECTING…</div>
+</div>
+
+<!-- TOAST -->
+<div id="toast-container"></div>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen" class="hidden">
+  <div class="auth-box fade-in">
+    <div class="auth-logo">
+      <div class="auth-logo-mark">S</div>
+      <div>
+        <div class="auth-logo-name">SPECIALISED CIVIL<br>&amp; ELECTRICAL</div>
+        <div class="auth-logo-sub">TIMESHEET PLATFORM</div>
+      </div>
+    </div>
+    <div class="auth-card">
+      <div class="auth-title" id="auth-title">SIGN IN</div>
+      <div class="auth-sub" id="auth-sub">Enter your credentials to continue</div>
+      <div id="auth-name-field" class="field hidden">
+        <div class="field-label">FULL NAME</div>
+        <div class="field-wrap"><input class="field-input" id="auth-name" placeholder="Your full name"/></div>
+      </div>
+      <div class="field">
+        <div class="field-label">EMAIL ADDRESS</div>
+        <div class="field-wrap"><input class="field-input" id="auth-email" type="email" placeholder="you@example.com"/></div>
+      </div>
+      <div class="field">
+        <div class="field-label">PASSWORD</div>
+        <div class="field-wrap"><input class="field-input" id="auth-password" type="password" placeholder="••••••••"/></div>
+      </div>
+      <div class="auth-error" id="auth-error"></div>
+      <button class="btn btn-o w100" id="auth-submit" style="margin-top:8px;padding:11px">SIGN IN</button>
+      <div class="auth-toggle">
+        <span id="auth-toggle-text">Don't have an account?</span>
+        <a id="auth-toggle-link"> Register here</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="app-screen">
+  <!-- Header -->
+  <div id="app-header">
+    <div class="hdr-logo">
+      <div class="hdr-mark">S</div>
+      <div>
+        <div class="hdr-name">SCE TIMESHEET</div>
+        <div class="hdr-sub">ABN 56 627 507 028</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div>
+        <div class="hdr-user" id="hdr-user-email"></div>
+        <div style="text-align:right;margin-top:2px">
+          <span class="hdr-role" id="hdr-role-badge"></span>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="btn-signout">SIGN OUT</button>
+    </div>
+  </div>
+
+  <!-- Tab Nav -->
+  <div id="tab-nav">
+    <div class="tab-item active" data-tab="timesheet">⏱ TIMESHEET</div>
+    <div class="tab-item hidden" data-tab="admin" id="admin-tab-btn">⚙ ADMIN</div>
+    <div class="tab-item" data-tab="history">📋 MY HISTORY</div>
+  </div>
+
+  <!-- Tab Content -->
+  <div id="tab-content" style="padding:0">
+
+    <!-- ── TIMESHEET TAB ── -->
+    <div id="tab-timesheet" class="ts-shell">
+      <!-- Sidebar -->
+      <nav id="ts-day-nav">
+        <div class="nav-lbl">DAYS</div>
+        <div id="day-nav-items"></div>
+        <div class="nav-div"></div>
+        <button class="nav-summary-btn" id="nav-sum-btn">📋 SUMMARY</button>
+        <div class="nav-week-total">WEEK TOTAL<span id="nav-week-hrs">—</span></div>
+      </nav>
+      <!-- Main -->
+      <div id="ts-main"></div>
+    </div>
+
+    <!-- ── ADMIN TAB ── -->
+    <div id="tab-admin" class="hidden" style="padding:28px">
+      <div class="admin-title">ADMIN PANEL</div>
+      <div class="admin-sub">USER MANAGEMENT &amp; OVERSIGHT</div>
+      <div class="admin-stats" id="admin-stats"></div>
+      <div class="card">
+        <div class="card-head">
+          <span class="card-label">REGISTERED USERS</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm" id="btn-refresh-users">↻ REFRESH</button>
+            <button class="btn btn-o btn-sm" id="btn-invite-user">+ INVITE USER</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="user-table" id="user-table">
+            <thead><tr>
+              <th>NAME</th><th>EMAIL</th><th>ROLE</th>
+              <th>STATUS</th><th>JOINED</th><th>TIMESHEETS</th><th>ACTIONS</th>
+            </tr></thead>
+            <tbody id="user-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Timesheet viewer (hidden until user selected) -->
+      <div id="user-ts-viewer" class="hidden" style="margin-top:20px">
+        <div class="ts-viewer-header">
+          <button class="back-btn" id="btn-back-users">← BACK TO USERS</button>
+          <div style="font-family:var(--disp);font-size:20px;letter-spacing:2px;color:var(--o)" id="viewer-name"></div>
+        </div>
+        <div id="viewer-ts-list"></div>
+      </div>
+    </div>
+
+    <!-- ── HISTORY TAB ── -->
+    <div id="tab-history" class="hidden" style="padding:28px">
+      <div style="font-family:var(--disp);font-size:36px;letter-spacing:4px;color:var(--o);margin-bottom:4px">MY TIMESHEETS</div>
+      <div style="font-size:10px;color:var(--t3);letter-spacing:2px;margin-bottom:22px">SUBMITTED HISTORY</div>
+      <div id="history-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay hidden" id="modal-overlay">
+  <div class="modal-box" id="modal-box">
+    <div class="modal-title" id="modal-title"></div>
+    <div id="modal-body"></div>
+    <div class="modal-actions" id="modal-actions"></div>
+  </div>
+</div>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, orderBy, updateDoc, deleteDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ── FIREBASE CONFIG ──────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyBiB4rCKSWfWrbbJ4uP3tByIO5kXeILKpQ",
+  authDomain: "sce-timesheet-1841d.firebaseapp.com",
+  projectId: "sce-timesheet-1841d",
+  storageBucket: "sce-timesheet-1841d.firebasestorage.app",
+  messagingSenderId: "451326665894",
+  appId: "1:451326665894:web:cafa183200dd0da96c4067",
+  measurementId: "G-NLZGG66EXV"
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// ── CONSTANTS ────────────────────────────────────────────────────────────────
+const DAYS     = ["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"];
+const DAY_SHORT= ["MON","TUE","WED","THU","FRI","SAT","SUN"];
+// FIRST registered user becomes admin
+const ADMIN_EMAIL_KEY = "sce_first_user";
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let currentUser = null, userProfile = null;
+let tsData = null;       // current week timesheet
+let currentView = "setup";
+let saveTimeout = null;
+let currentWeekId = null;
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function toast(msg, type="info") {
+  const t = document.createElement("div");
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.getElementById("toast-container").appendChild(t);
+  setTimeout(()=>t.remove(), 3500);
+}
+
+function calcHours(s,f){
+  if(!s||!f)return null;
+  const[sh,sm]=s.split(":").map(Number),[fh,fm]=f.split(":").map(Number);
+  const diff=(fh*60+fm)-(sh*60+sm);
+  return diff>0?diff/60:null;
+}
+function fmtH(h){
+  if(h==null||isNaN(h))return"—";
+  const hrs=Math.floor(h),mins=Math.round((h-hrs)*60);
+  return mins>0?`${hrs}h ${mins}m`:`${hrs}h`;
+}
+function getWeekDates(we){
+  if(!we)return DAYS.map(()=>"");
+  const[y,m,d]=we.split("-").map(Number),end=new Date(y,m-1,d);
+  return DAYS.map((_,i)=>{const dt=new Date(end);dt.setDate(end.getDate()-(6-i));return dt.toLocaleDateString("en-AU",{day:"2-digit",month:"2-digit",year:"2-digit"})});
+}
+function weekTotal(days){return days.reduce((a,d)=>a+(d.total||0),0)}
+function escH(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function freshDays(){return DAYS.map(()=>({date:"",start:"",finish:"",total:null,onCall:false,laha:false,descs:[""]}))}
+function freshMeta(){return{empName:"",weekEnding:"",position:"",clientName:"",workLocation:"",project:""}}
+
+function showModal(title, bodyHTML, actions){
+  document.getElementById("modal-title").textContent=title;
+  document.getElementById("modal-body").innerHTML=bodyHTML;
+  const acts=document.getElementById("modal-actions");
+  acts.innerHTML="";
+  actions.forEach(a=>{
+    const b=document.createElement("button");
+    b.className=`btn ${a.cls||""}`;b.textContent=a.label;
+    b.onclick=a.onClick;acts.appendChild(b);
+  });
+  document.getElementById("modal-overlay").classList.remove("hidden");
+}
+function closeModal(){document.getElementById("modal-overlay").classList.add("hidden")}
+document.getElementById("modal-overlay").addEventListener("click",e=>{if(e.target===e.currentTarget)closeModal()});
+
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+let authMode = "login";
+
+function setAuthMode(mode){
+  authMode=mode;
+  const isReg=mode==="register";
+  document.getElementById("auth-title").textContent=isReg?"REGISTER":"SIGN IN";
+  document.getElementById("auth-sub").textContent=isReg?"Create your SCE account":"Enter your credentials";
+  document.getElementById("auth-submit").textContent=isReg?"CREATE ACCOUNT":"SIGN IN";
+  document.getElementById("auth-name-field").classList.toggle("hidden",!isReg);
+  document.getElementById("auth-toggle-text").textContent=isReg?"Already have an account?":"Don't have an account?";
+  document.getElementById("auth-toggle-link").textContent=isReg?" Sign in":" Register here";
+  document.getElementById("auth-error").style.display="none";
+}
+
+document.getElementById("auth-toggle-link").onclick=()=>setAuthMode(authMode==="login"?"register":"login");
+
+document.getElementById("auth-submit").onclick=async()=>{
+  const email=document.getElementById("auth-email").value.trim();
+  const pass=document.getElementById("auth-password").value;
+  const name=document.getElementById("auth-name").value.trim();
+  const errEl=document.getElementById("auth-error");
+  errEl.style.display="none";
+  const btn=document.getElementById("auth-submit");
+  btn.disabled=true;btn.textContent="…";
+
+  try{
+    if(authMode==="register"){
+      if(!name){errEl.textContent="Please enter your name";errEl.style.display="block";btn.disabled=false;btn.textContent="CREATE ACCOUNT";return}
+      const cred=await createUserWithEmailAndPassword(auth,email,pass);
+      // Check if first user → make admin
+      const configDoc=await getDoc(doc(db,"config","app"));
+      const isFirst=!configDoc.exists()||!configDoc.data().adminSet;
+      const role=isFirst?"admin":"employee";
+      await setDoc(doc(db,"users",cred.user.uid),{
+        name,email,role,status:"active",
+        createdAt:serverTimestamp(),uid:cred.user.uid
+      });
+      if(isFirst)await setDoc(doc(db,"config","app"),{adminSet:true,adminUid:cred.user.uid});
+      toast(`Welcome ${name}! ${role==="admin"?"You are the admin.":""}`, "success");
+    } else {
+      await signInWithEmailAndPassword(auth,email,pass);
+    }
+  } catch(e){
+    errEl.textContent=e.message.replace("Firebase: ","").replace(/\(auth\/.*\)/,"");
+    errEl.style.display="block";
+    btn.disabled=false;
+    btn.textContent=authMode==="register"?"CREATE ACCOUNT":"SIGN IN";
+  }
+};
+
+// Enter key
+["auth-email","auth-password","auth-name"].forEach(id=>{
+  document.getElementById(id)?.addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("auth-submit").click()});
+});
+
+// Sign out
+document.getElementById("btn-signout").onclick=async()=>{
+  await signOut(auth);
+  toast("Signed out","info");
+};
+
+// ── AUTH STATE ───────────────────────────────────────────────────────────────
+onAuthStateChanged(auth, async user=>{
+  document.getElementById("loading-overlay").style.display="none";
+  if(!user){
+    document.getElementById("auth-screen").classList.remove("hidden");
+    document.getElementById("app-screen").style.display="none";
+    return;
+  }
+  currentUser=user;
+  // Load profile
+  const snap=await getDoc(doc(db,"users",user.uid));
+  if(!snap.exists()){await signOut(auth);return}
+  userProfile=snap.data();
+
+  document.getElementById("auth-screen").classList.add("hidden");
+  document.getElementById("app-screen").style.display="flex";
+  document.getElementById("hdr-user-email").textContent=userProfile.name||user.email;
+  const roleBadge=document.getElementById("hdr-role-badge");
+  roleBadge.textContent=userProfile.role.toUpperCase();
+  roleBadge.className=`hdr-role ${userProfile.role==="admin"?"role-admin":"role-employee"}`;
+
+  if(userProfile.role==="admin"){
+    document.getElementById("admin-tab-btn").classList.remove("hidden");
+  }
+
+  // Check if account disabled
+  if(userProfile.status==="disabled"){
+    showModal("ACCOUNT DISABLED","<p style='color:var(--t2);font-size:13px'>Your account has been disabled by an administrator. Please contact your manager.</p>",[
+      {label:"SIGN OUT",cls:"btn-danger",onClick:()=>{closeModal();signOut(auth)}}
+    ]);
+    return;
+  }
+
+  initTimesheet();
+  loadHistory();
+});
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────────────────
+document.querySelectorAll(".tab-item").forEach(tab=>{
+  tab.onclick=()=>{
+    if(tab.classList.contains("hidden"))return;
+    document.querySelectorAll(".tab-item").forEach(t=>t.classList.remove("active"));
+    tab.classList.add("active");
+    const id=tab.dataset.tab;
+    document.getElementById("tab-timesheet").classList.toggle("hidden",id!=="timesheet");
+    document.getElementById("tab-admin").classList.toggle("hidden",id!=="admin");
+    document.getElementById("tab-history").classList.toggle("hidden",id!=="history");
+    document.getElementById("tab-content").style.padding=(id==="timesheet")?"0":"0";
+    if(id==="admin")loadAdminPanel();
+    if(id==="history")loadHistory();
+  };
+});
+
+// ══════════════════════════════════════
+// TIMESHEET
+// ══════════════════════════════════════
+function initTimesheet(){
+  tsData={meta:freshMeta(),days:freshDays(),submitted:false,weekId:null};
+  currentView="setup";
+  buildNav();
+  renderTsView();
+}
+
+function buildNav(){
+  const cont=document.getElementById("day-nav-items");
+  cont.innerHTML="";
+  if(!tsData||currentView==="setup")return;
+  DAYS.forEach((day,i)=>{
+    const d=tsData.days[i];
+    const item=document.createElement("div");
+    item.className=`day-nav-item ${d.total!=null?"filled":""} ${currentView===`day-${i}`?"active":""}`;
+    item.id=`dni-${i}`;
+    item.innerHTML=`<div class="dni-dot"></div><div class="dni-name">${DAY_SHORT[i]}</div><div class="dni-hrs">${d.total!=null?fmtH(d.total):""}</div>`;
+    item.onclick=()=>switchView(`day-${i}`);
+    cont.appendChild(item);
+  });
+  const tot=weekTotal(tsData.days);
+  document.getElementById("nav-week-hrs").textContent=tot>0?fmtH(tot):"—";
+}
+
+function updateNav(){
+  if(!tsData)return;
+  DAYS.forEach((_,i)=>{
+    const item=document.getElementById(`dni-${i}`);
+    if(!item)return;
+    const d=tsData.days[i];
+    item.className=`day-nav-item ${d.total!=null?"filled":""} ${currentView===`day-${i}`?"active":""}`;
+    item.querySelector(".dni-hrs").textContent=d.total!=null?fmtH(d.total):"";
+  });
+  document.getElementById("nav-sum-btn")?.classList.toggle("active",currentView==="summary");
+  const tot=weekTotal(tsData.days);
+  document.getElementById("nav-week-hrs").textContent=tot>0?fmtH(tot):"—";
+}
+
+document.getElementById("nav-sum-btn").onclick=()=>switchView("summary");
+
+function switchView(v){
+  currentView=v;
+  updateNav();
+  renderTsView();
+}
+
+function renderTsView(){
+  const main=document.getElementById("ts-main");
+  main.innerHTML="";
+  if(currentView==="setup"){renderSetup(main);return}
+  if(currentView==="summary"){renderSummaryView(main);return}
+  const i=parseInt(currentView.split("-")[1]);
+  renderDayView(main,i);
+}
+
+// ── SETUP ────────────────────────────────────────────────────────────────────
+function renderSetup(main){
+  main.innerHTML=`
+  <div class="ts-setup-title fade-in">NEW TIMESHEET</div>
+  <div class="ts-setup-sub">SET UP YOUR WEEK</div>
+  <div class="save-bar"><div class="save-dot" id="save-dot"></div><span id="save-txt">Not saved</span></div>
+  <div class="card">
+    <div class="card-head"><span class="card-label">WEEK DETAILS</span></div>
+    <div class="card-body">
+      <div class="setup-grid">
+        ${[["EMPLOYEE NAME","empName","text",userProfile.name||""],["WEEK ENDING","weekEnding","date",""],
+           ["POSITION","position","text",userProfile.position||""],["CLIENT NAME","clientName","text",""],
+           ["WORK LOCATION","workLocation","text",""],["PROJECT","project","text",""]].map(([l,k,t,v])=>`
+          <div class="setup-cell">
+            <div class="field-label">${l}</div>
+            <div class="field-wrap"><input class="field-input" data-meta="${k}" type="${t}" value="${v}" placeholder="${l.toLowerCase()}"/></div>
+          </div>`).join("")}
+      </div>
+      <button class="btn btn-o" style="margin-top:22px;padding:11px 28px" id="btn-start-ts">START TIMESHEET →</button>
+    </div>
+  </div>`;
+
+  main.querySelectorAll("[data-meta]").forEach(inp=>{
+    inp.addEventListener("input",()=>{
+      tsData.meta[inp.dataset.meta]=inp.value;
+    });
+  });
+
+  document.getElementById("btn-start-ts").onclick=()=>{
+    if(!tsData.meta.weekEnding){toast("Please set a week ending date","error");return}
+    tsData.meta.empName=tsData.meta.empName||userProfile.name||"";
+    // Auto-fill dates
+    const dates=getWeekDates(tsData.meta.weekEnding);
+    tsData.days.forEach((d,i)=>{if(!d.date)d.date=dates[i]});
+    currentWeekId=`${currentUser.uid}_${tsData.meta.weekEnding}`;
+    switchView("day-0");
+    buildNav();
+    autoSave();
+  };
+}
+
+// ── DAY VIEW ──────────────────────────────────────────────────────────────────
+function renderDayView(main,i){
+  const d=tsData.days[i];
+  const isWE=i>=5;
+  const dates=getWeekDates(tsData.meta.weekEnding);
+  const pct=((i)/7*100).toFixed(0);
+
+  main.innerHTML=`
+  <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+  <div class="day-title fade-in">${DAYS[i]}</div>
+  <div class="day-date-lbl">${dates[i]||"—"} · DAY ${i+1} OF 7</div>
+  <div class="save-bar"><div class="save-dot" id="save-dot"></div><span id="save-txt">—</span></div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head">
+      <span class="card-label">HOURS</span>
+      <div class="toggles">
+        <div class="toggle-item"><input type="checkbox" id="oc-${i}" ${d.onCall?"checked":""}><label for="oc-${i}">ON CALL</label></div>
+        <div class="toggle-item"><input type="checkbox" id="lh-${i}" ${d.laha?"checked":""}><label for="lh-${i}">LAHA</label></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="time-grid">
+        <div class="field"><div class="field-label">START TIME</div><div class="field-wrap"><input type="time" class="field-input" id="st-${i}" value="${d.start}"/></div></div>
+        <div class="field"><div class="field-label">FINISH TIME</div><div class="field-wrap"><input type="time" class="field-input" id="fn-${i}" value="${d.finish}"/></div></div>
+        <div class="field"><div class="field-label">DATE</div><div class="field-wrap"><input class="field-input" id="dt-${i}" value="${d.date||dates[i]}" placeholder="dd/mm/yy"/></div></div>
+        <div><div class="field-label">TOTAL</div><div class="computed-val ${d.total!=null?"":"empty"}" id="cv-${i}">${fmtH(d.total)}</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head">
+      <span class="card-label">WORK DESCRIPTIONS</span>
+      <span style="font-size:9px;color:var(--t3)" id="dc-${i}">${d.descs.filter(s=>s.trim()).length} ITEM(S)</span>
+    </div>
+    <div class="card-body">
+      <div class="work-list" id="wl-${i}"></div>
+      <button class="add-work-btn" id="awb-${i}"><span style="color:var(--o);font-size:16px">+</span> ADD WORK ITEM</button>
+    </div>
+  </div>
+
+  <div class="day-arrows">
+    ${i>0?`<button class="arrow-btn" id="prev-day">← ${DAY_SHORT[i-1]}</button>`:"<div></div>"}
+    ${i<6?`<button class="arrow-btn primary" id="next-day">NEXT: ${DAY_SHORT[i+1]} →</button>`
+         :`<button class="arrow-btn primary" id="next-day">VIEW SUMMARY →</button>`}
+  </div>`;
+
+  // Wire time inputs
+  document.getElementById(`st-${i}`).addEventListener("change",e=>{d.start=e.target.value;recalcDay(i)});
+  document.getElementById(`fn-${i}`).addEventListener("change",e=>{d.finish=e.target.value;recalcDay(i)});
+  document.getElementById(`dt-${i}`).addEventListener("input",e=>{d.date=e.target.value;autoSave()});
+  document.getElementById(`oc-${i}`).addEventListener("change",e=>{d.onCall=e.target.checked;autoSave()});
+  document.getElementById(`lh-${i}`).addEventListener("change",e=>{d.laha=e.target.checked;autoSave()});
+  document.getElementById(`awb-${i}`).addEventListener("click",()=>addDesc(i));
+  if(i>0) document.getElementById("prev-day").onclick=()=>switchView(`day-${i-1}`);
+  document.getElementById("next-day").onclick=()=>switchView(i<6?`day-${i+1}`:"summary");
+
+  renderWorkItems(i);
+}
+
+function recalcDay(i){
+  const d=tsData.days[i];
+  d.total=calcHours(d.start,d.finish);
+  const cv=document.getElementById(`cv-${i}`);
+  if(cv){cv.textContent=fmtH(d.total);cv.className=`computed-val ${d.total!=null?"":"empty"}`}
+  updateNav();
+  autoSave();
+}
+
+function renderWorkItems(i){
+  const d=tsData.days[i];
+  const list=document.getElementById(`wl-${i}`);
+  if(!list)return;
+  list.innerHTML="";
+  d.descs.forEach((txt,j)=>{
+    const item=document.createElement("div");
+    item.className="work-item";
+    item.innerHTML=`<div class="work-num">${j+1}.</div><textarea class="work-ta" rows="1" placeholder="Describe work performed…">${escH(txt)}</textarea><button class="work-del" title="Remove">×</button>`;
+    const ta=item.querySelector("textarea");
+    ta.style.height="auto";
+    ta.addEventListener("input",()=>{
+      d.descs[j]=ta.value;
+      ta.style.height="auto";ta.style.height=ta.scrollHeight+"px";
+      const dc=document.getElementById(`dc-${i}`);
+      if(dc)dc.textContent=`${d.descs.filter(s=>s.trim()).length} ITEM(S)`;
+      autoSave();
+    });
+    ta.addEventListener("keydown",e=>{
+      if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();
+        if(j===d.descs.length-1)addDesc(i);
+        else list.querySelectorAll(".work-ta")[j+1]?.focus();
+      }
+    });
+    setTimeout(()=>{ta.style.height=ta.scrollHeight+"px"},0);
+    item.querySelector(".work-del").addEventListener("click",()=>{
+      if(d.descs.length===1)d.descs[0]="";else d.descs.splice(j,1);
+      renderWorkItems(i);autoSave();
+    });
+    list.appendChild(item);
+  });
+}
+
+function addDesc(i){
+  tsData.days[i].descs.push("");
+  renderWorkItems(i);
+  const items=document.querySelectorAll(`#wl-${i} .work-ta`);
+  setTimeout(()=>items[items.length-1]?.focus(),50);
+}
+
+// ── AUTO SAVE ─────────────────────────────────────────────────────────────────
+function setSaveStatus(status){
+  const dot=document.getElementById("save-dot");
+  const txt=document.getElementById("save-txt");
+  if(!dot||!txt)return;
+  if(status==="saving"){dot.className="save-dot saving";txt.textContent="Saving…"}
+  else if(status==="saved"){dot.className="save-dot saved";txt.textContent="Saved to cloud"}
+  else{dot.className="save-dot";txt.textContent="Unsaved changes"}
+}
+
+async function autoSave(){
+  if(!currentWeekId||!tsData)return;
+  setSaveStatus("unsaved");
+  clearTimeout(saveTimeout);
+  saveTimeout=setTimeout(async()=>{
+    setSaveStatus("saving");
+    try{
+      await setDoc(doc(db,"timesheets",currentWeekId),{
+        ...tsData,uid:currentUser.uid,
+        updatedAt:serverTimestamp(),
+        weekId:currentWeekId
+      });
+      setSaveStatus("saved");
+    } catch(e){toast("Save failed: "+e.message,"error")}
+  },1200);
+}
+
+// ── SUMMARY VIEW ──────────────────────────────────────────────────────────────
+function renderSummaryView(main){
+  const{meta,days}=tsData;
+  const dates=getWeekDates(meta.weekEnding);
+  const tot=weekTotal(days);
+  const filled=days.filter(d=>d.total!=null).length;
+  const ocDays=days.filter(d=>d.onCall).length;
+  const laDays=days.filter(d=>d.laha).length;
+
+  main.innerHTML=`
+  <div class="sum-title fade-in">WEEKLY SUMMARY</div>
+  <div class="sum-sub">${(meta.empName||"").toUpperCase()} · WEEK ENDING ${meta.weekEnding||"—"}</div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="meta-grid">
+      ${[["EMPLOYEE NAME",meta.empName],["WEEK ENDING",meta.weekEnding],["POSITION",meta.position],
+         ["CLIENT NAME",meta.clientName],["WORK LOCATION",meta.workLocation],["PROJECT",meta.project]]
+        .map(([l,v])=>`<div class="meta-cell"><div class="field-label">${l}</div><div style="font-size:13px;margin-top:4px">${v||"—"}</div></div>`).join("")}
+    </div>
+  </div>
+
+  <div class="totals-bar">
+    <div class="tot-cell"><div class="tot-lbl">TOTAL HOURS</div><div class="tot-val">${tot>0?fmtH(tot):"—"}</div></div>
+    <div class="tot-cell"><div class="tot-lbl">DAYS WORKED</div><div class="tot-val">${filled}</div></div>
+    <div class="tot-cell"><div class="tot-lbl">ON CALL</div><div class="tot-val ${ocDays===0?"dim":""}">${ocDays} day(s)</div></div>
+    <div class="tot-cell"><div class="tot-lbl">LAHA</div><div class="tot-val ${laDays===0?"dim":""}">${laDays} day(s)</div></div>
+    <div class="tot-cell"><div class="tot-lbl">AVG / DAY</div><div class="tot-val">${filled>0?fmtH(tot/filled):"—"}</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head"><span class="card-label">DAY-BY-DAY BREAKDOWN</span><span style="font-size:9px;color:var(--t3)">${filled}/7 DAYS ENTERED</span></div>
+    <div style="overflow-x:auto">
+      <table class="sum-table">
+        <thead><tr><th>DAY</th><th>DATE</th><th>START</th><th>FINISH</th><th>HOURS</th><th style="text-align:center">ON CALL</th><th style="text-align:center">LAHA</th><th>WORK DESCRIPTIONS</th></tr></thead>
+        <tbody>
+          ${days.map((d,i)=>`<tr>
+            <td class="td-day ${i>=5?"we":""}">${DAYS[i]}</td>
+            <td style="font-size:11px;color:var(--t3)">${dates[i]||d.date||"—"}</td>
+            <td style="color:var(--t2)">${d.start||"—"}</td>
+            <td style="color:var(--t2)">${d.finish||"—"}</td>
+            <td class="td-hrs ${d.total!=null?"":"em"}">${fmtH(d.total)}</td>
+            <td class="td-chk">${d.onCall?"✓":""}</td>
+            <td class="td-chk">${d.laha?"✓":""}</td>
+            <td>${d.descs.filter(s=>s.trim()).map(s=>`<span class="desc-pill"><span class="pill-dot">▸</span>${escH(s)}</span>`).join("")||"<span style='color:var(--t4);font-size:11px'>No entries</span>"}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Signatures -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+    <div class="card">
+      <div class="card-head"><span class="card-label">SIGNATURES</span></div>
+      <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        ${[["EMPLOYEE NAME","sig-en"],["EMPLOYEE SIGNATURE","sig-es"],["CLIENT REP NAME","sig-cr"],["CLIENT SIGNATURE","sig-cs"]]
+          .map(([l,id])=>`<div><div class="field-label">${l}</div><div class="field-wrap"><input class="field-input" id="${id}" placeholder="${l}"/></div></div>`).join("")}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-label">NOTES</span></div>
+      <div class="card-body"><textarea id="sum-notes" style="width:100%;background:transparent;border:none;outline:none;color:var(--t1);font-family:var(--mono);font-size:13px;resize:none;line-height:1.8" rows="5" placeholder="Notes, observations or instructions…"></textarea></div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn btn-o" id="btn-export-pdf" style="padding:11px 24px;font-size:11px;letter-spacing:2px">EXPORT PDF →</button>
+    <button class="btn" id="btn-submit-ts" style="padding:11px 24px;font-size:11px;letter-spacing:2px">SUBMIT TIMESHEET ✓</button>
+    <button class="btn btn-ghost" id="btn-new-week" style="padding:11px 24px;font-size:11px;letter-spacing:2px">+ NEW WEEK</button>
+  </div>`;
+
+  document.getElementById("btn-export-pdf").onclick=()=>generatePDF(tsData);
+  document.getElementById("btn-new-week").onclick=()=>{
+    tsData={meta:freshMeta(),days:freshDays()};
+    currentWeekId=null;currentView="setup";
+    buildNav();renderTsView();
+  };
+  document.getElementById("btn-submit-ts").onclick=async()=>{
+    tsData.submitted=true;tsData.submittedAt=new Date().toISOString();
+    await autoSave();
+    toast("Timesheet submitted!","success");
+    document.getElementById("btn-submit-ts").textContent="✓ SUBMITTED";
+    document.getElementById("btn-submit-ts").disabled=true;
+  };
+}
+
+// ══════════════════════════════════════
+// HISTORY TAB
+// ══════════════════════════════════════
+async function loadHistory(){
+  const list=document.getElementById("history-list");
+  list.innerHTML=`<div style="color:var(--t3);font-size:12px">Loading…</div>`;
+  try{
+    const q=query(collection(db,"timesheets"),where("uid","==",currentUser.uid),orderBy("updatedAt","desc"));
+    const snap=await getDocs(q);
+    if(snap.empty){list.innerHTML=`<div style="color:var(--t3);font-size:12px;padding:20px 0">No timesheets saved yet.</div>`;return}
+    list.innerHTML="";
+    snap.forEach(d=>{
+      const ts=d.data();
+      const tot=weekTotal(ts.days||[]);
+      const card=document.createElement("div");
+      card.className="ts-card fade-in";
+      card.innerHTML=`
+        <div class="ts-card-top">
+          <div class="ts-card-week">Week ending: ${ts.meta?.weekEnding||"—"}</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="ts-card-hrs">${tot>0?fmtH(tot):"—"}</div>
+            ${ts.submitted?`<span class="status-badge status-active">SUBMITTED</span>`:`<span class="status-badge status-pending">DRAFT</span>`}
+          </div>
+        </div>
+        <div class="ts-card-meta">${ts.meta?.clientName||""} ${ts.meta?.project?`· ${ts.meta.project}`:""}</div>`;
+      card.onclick=()=>{
+        tsData={...ts};
+        currentWeekId=d.id;
+        currentView="summary";
+        buildNav();
+        document.querySelector('[data-tab="timesheet"]').click();
+        renderTsView();
+      };
+      list.appendChild(card);
+    });
+  } catch(e){list.innerHTML=`<div style="color:#f87171;font-size:12px">Error: ${e.message}</div>`}
+}
+
+// ══════════════════════════════════════
+// ADMIN PANEL
+// ══════════════════════════════════════
+async function loadAdminPanel(){
+  document.getElementById("user-ts-viewer").classList.add("hidden");
+  const tbody=document.getElementById("user-tbody");
+  tbody.innerHTML=`<tr><td colspan="7" style="color:var(--t3);font-size:12px;padding:20px">Loading users…</td></tr>`;
+
+  try{
+    const usersSnap=await getDocs(collection(db,"users"));
+    const users=[];
+    usersSnap.forEach(d=>users.push({id:d.id,...d.data()}));
+
+    // Stats
+    const tsSnap=await getDocs(collection(db,"timesheets"));
+    const totalTs=tsSnap.size;
+    const submittedTs=tsSnap.docs.filter(d=>d.data().submitted).length;
+    const admins=users.filter(u=>u.role==="admin").length;
+
+    document.getElementById("admin-stats").innerHTML=`
+      <div class="stat-card"><div class="stat-lbl">TOTAL USERS</div><div class="stat-val">${users.length}</div></div>
+      <div class="stat-card"><div class="stat-lbl">ADMINS</div><div class="stat-val dim">${admins}</div></div>
+      <div class="stat-card"><div class="stat-lbl">TIMESHEETS</div><div class="stat-val">${totalTs}</div></div>
+      <div class="stat-card"><div class="stat-lbl">SUBMITTED</div><div class="stat-val">${submittedTs}</div></div>`;
+
+    // Per-user timesheet count
+    const tsPerUser={};
+    tsSnap.forEach(d=>{const uid=d.data().uid;tsPerUser[uid]=(tsPerUser[uid]||0)+1});
+
+    tbody.innerHTML="";
+    users.forEach(u=>{
+      const isSelf=u.uid===currentUser.uid;
+      const joined=u.createdAt?.toDate?.()?.toLocaleDateString("en-AU")||"—";
+      const tr=document.createElement("tr");
+      tr.innerHTML=`
+        <td style="font-size:13px">${u.name||"—"}${isSelf?` <span style="font-size:9px;color:var(--t3)">(you)</span>`:""}</td>
+        <td style="color:var(--t2);font-size:11px">${u.email}</td>
+        <td><span class="role-badge ${u.role==="admin"?"rb-admin":"rb-emp"}">${u.role.toUpperCase()}</span></td>
+        <td><span class="status-badge ${u.status==="active"?"status-active":"status-disabled"}">${(u.status||"active").toUpperCase()}</span></td>
+        <td style="color:var(--t3);font-size:11px">${joined}</td>
+        <td style="color:var(--o)">${tsPerUser[u.uid]||0}</td>
+        <td><div class="actions-cell" id="acts-${u.uid}"></div></td>`;
+      tbody.appendChild(tr);
+
+      const acts=tr.querySelector(`#acts-${u.uid}`);
+
+      // View timesheets
+      const btnView=document.createElement("button");
+      btnView.className="btn btn-sm";btnView.textContent="VIEW";
+      btnView.onclick=()=>viewUserTimesheets(u);
+      acts.appendChild(btnView);
+
+      if(!isSelf){
+        // Toggle role
+        const btnRole=document.createElement("button");
+        btnRole.className="btn btn-sm";
+        btnRole.textContent=u.role==="admin"?"DEMOTE":"PROMOTE";
+        btnRole.onclick=()=>toggleRole(u,users,btnRole);
+        acts.appendChild(btnRole);
+
+        // Toggle status
+        const btnStatus=document.createElement("button");
+        btnStatus.className=`btn btn-sm ${u.status==="disabled"?"btn-ghost":""}`;
+        btnStatus.textContent=u.status==="disabled"?"ENABLE":"DISABLE";
+        btnStatus.onclick=()=>toggleStatus(u,btnStatus);
+        acts.appendChild(btnStatus);
+
+        // Delete
+        const btnDel=document.createElement("button");
+        btnDel.className="btn btn-sm btn-danger";btnDel.textContent="DELETE";
+        btnDel.onclick=()=>deleteUser(u);
+        acts.appendChild(btnDel);
+      }
+    });
+  } catch(e){tbody.innerHTML=`<tr><td colspan="7" style="color:#f87171;font-size:12px;padding:16px">Error: ${e.message}</td></tr>`}
+}
+
+async function toggleRole(u, users, btn){
+  const newRole=u.role==="admin"?"employee":"admin";
+  showModal(`CHANGE ROLE`,
+    `<p style="color:var(--t2);font-size:13px">Change <strong style="color:var(--t1)">${u.name}</strong>'s role to <strong style="color:var(--o)">${newRole.toUpperCase()}</strong>?</p>`,
+    [{label:"CANCEL",onClick:closeModal},{label:"CONFIRM",cls:"btn-o",onClick:async()=>{
+      closeModal();
+      await updateDoc(doc(db,"users",u.uid),{role:newRole});
+      u.role=newRole;btn.textContent=newRole==="admin"?"DEMOTE":"PROMOTE";
+      toast(`${u.name} is now ${newRole}`,"success");
+      loadAdminPanel();
+    }}]);
+}
+
+async function toggleStatus(u,btn){
+  const newStatus=u.status==="disabled"?"active":"disabled";
+  showModal(`${newStatus==="disabled"?"DISABLE":"ENABLE"} USER`,
+    `<p style="color:var(--t2);font-size:13px">${newStatus==="disabled"?"Disable":"Re-enable"} account for <strong style="color:var(--t1)">${u.name}</strong>?${newStatus==="disabled"?"<br><span style='color:#f87171;font-size:11px'>They will not be able to log in.</span>":""}</p>`,
+    [{label:"CANCEL",onClick:closeModal},{label:"CONFIRM",cls:newStatus==="disabled"?"btn-danger":"btn-o",onClick:async()=>{
+      closeModal();
+      await updateDoc(doc(db,"users",u.uid),{status:newStatus});
+      toast(`${u.name} ${newStatus==="disabled"?"disabled":"enabled"}`,"success");
+      loadAdminPanel();
+    }}]);
+}
+
+async function deleteUser(u){
+  showModal("DELETE USER",
+    `<p style="color:var(--t2);font-size:13px">Permanently delete <strong style="color:#f87171">${u.name}</strong> (${u.email})?</p><p style="color:var(--t3);font-size:11px;margin-top:8px">Their timesheet data will remain but the account will be removed.</p>`,
+    [{label:"CANCEL",onClick:closeModal},{label:"DELETE",cls:"btn-danger",onClick:async()=>{
+      closeModal();
+      await deleteDoc(doc(db,"users",u.uid));
+      toast(`${u.name} removed`,"success");
+      loadAdminPanel();
+    }}]);
+}
+
+async function viewUserTimesheets(u){
+  document.getElementById("user-ts-viewer").classList.remove("hidden");
+  document.getElementById("viewer-name").textContent=u.name?.toUpperCase()||u.email;
+  const list=document.getElementById("viewer-ts-list");
+  list.innerHTML=`<div style="color:var(--t3);font-size:12px">Loading…</div>`;
+  document.getElementById("user-ts-viewer").scrollIntoView({behavior:"smooth"});
+
+  const q=query(collection(db,"timesheets"),where("uid","==",u.uid),orderBy("updatedAt","desc"));
+  const snap=await getDocs(q);
+  if(snap.empty){list.innerHTML=`<div style="color:var(--t3);font-size:12px;padding:16px 0">No timesheets found for this user.</div>`;return}
+  list.innerHTML="";
+  snap.forEach(d=>{
+    const ts=d.data();const tot=weekTotal(ts.days||[]);
+    const card=document.createElement("div");
+    card.className="ts-card";
+    card.innerHTML=`
+      <div class="ts-card-top">
+        <div class="ts-card-week">Week ending: ${ts.meta?.weekEnding||"—"}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="ts-card-hrs">${tot>0?fmtH(tot):"—"}</div>
+          ${ts.submitted?`<span class="status-badge status-active">SUBMITTED</span>`:`<span class="status-badge status-pending">DRAFT</span>`}
+          <button class="btn btn-sm btn-o" onclick="event.stopPropagation()">PDF</button>
+        </div>
+      </div>
+      <div class="ts-card-meta">${ts.meta?.clientName||""} ${ts.meta?.project?`· ${ts.meta.project}`:""} · ${ts.days?.filter(d=>d.total!=null).length||0} days</div>`;
+    card.querySelector(".btn-o").onclick=(e)=>{e.stopPropagation();generatePDF(ts)};
+    list.appendChild(card);
+  });
+}
+
+document.getElementById("btn-back-users").onclick=()=>{
+  document.getElementById("user-ts-viewer").classList.add("hidden");
+};
+document.getElementById("btn-refresh-users").onclick=loadAdminPanel;
+document.getElementById("btn-invite-user").onclick=()=>{
+  showModal("INVITE USER",
+    `<p style="color:var(--t2);font-size:13px;margin-bottom:16px">Share this link with the new employee. They register themselves and their account is automatically set to <span style="color:var(--o)">Employee</span> role.</p>
+     <div style="background:var(--s2);border:1px solid var(--b2);border-radius:var(--r);padding:10px 14px;font-size:11px;color:var(--t2);word-break:break-all">${window.location.href}</div>`,
+    [{label:"COPY LINK",cls:"btn-o",onClick:()=>{navigator.clipboard.writeText(window.location.href);toast("Link copied!","success");closeModal()}},
+     {label:"CLOSE",onClick:closeModal}]);
+};
+
+// ══════════════════════════════════════
+// PDF EXPORT
+// ══════════════════════════════════════
+function generatePDF(ts){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
+  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
+  const orange=[224,92,42],light=[232,224,208],cardBg=[22,22,22];
+  const dates=getWeekDates(ts.meta?.weekEnding||"");
+  const days=ts.days||freshDays();
+  const meta=ts.meta||freshMeta();
+
+  doc.setFillColor(13,13,13);doc.rect(0,0,W,H,"F");
+  doc.setFillColor(19,19,19);doc.rect(0,0,W,22,"F");
+  doc.setFillColor(...orange);doc.roundedRect(8,4,14,14,2,2,"F");
+  doc.setFont("helvetica","bold");doc.setFontSize(11);doc.setTextColor(255,255,255);
+  doc.text("S",13.5,13.5);
+  doc.setFontSize(13);doc.setTextColor(...light);
+  doc.text("SPECIALISED CIVIL & ELECTRICAL PTY LTD",26,10);
+  doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(90,85,80);
+  doc.text("ABN: 56 627 507 028  ·  tweekes@scepl.com.au  ·  Billywillinga NSW 2795",26,16);
+  doc.setFont("helvetica","bold");doc.setFontSize(20);doc.setTextColor(...orange);
+  doc.text("WEEKLY TIMESHEET",8,32);
+  doc.setFillColor(...orange);doc.rect(8,34,22,0.8,"F");
+
+  // Meta card
+  doc.setFillColor(...cardBg);doc.roundedRect(8,36,W-16,22,2,2,"F");
+  doc.setDrawColor(30,30,30);doc.setLineWidth(0.3);doc.roundedRect(8,36,W-16,22,2,2,"S");
+  const mf=[["EMPLOYEE NAME",meta.empName],["WEEK ENDING",meta.weekEnding],["POSITION",meta.position],
+            ["CLIENT NAME",meta.clientName],["WORK LOCATION",meta.workLocation],["PROJECT",meta.project]];
+  const cw=(W-16)/3;
+  mf.forEach(([l,v],i)=>{
+    const col=i%3,row=Math.floor(i/3),x=8+col*cw+5,y=40+row*10;
+    doc.setFont("helvetica","normal");doc.setFontSize(6);doc.setTextColor(80,75,70);doc.text(l,x,y);
+    doc.setFont("helvetica","bold");doc.setFontSize(9);doc.setTextColor(...light);doc.text(v||"—",x,y+5);
+    if(col<2){doc.setDrawColor(30,30,30);doc.line(8+(col+1)*cw,37,8+(col+1)*cw,57)}
+  });
+
+  const tableRows=days.map((d,i)=>[
+    DAYS[i],dates[i]||d.date||"—",d.start||"—",d.finish||"—",
+    d.total!=null?fmtH(d.total):"—",d.onCall?"✓":"",d.laha?"✓":"",
+    d.descs.filter(s=>s.trim()).map((s,j)=>`${j+1}. ${s}`).join("\n")||"—"
+  ]);
+
+  doc.autoTable({
+    startY:60,head:[["DAY","DATE","START","FINISH","HOURS","ON CALL","LAHA","WORK DESCRIPTIONS"]],
+    body:tableRows,theme:"plain",margin:{left:8,right:8},tableWidth:W-16,
+    styles:{font:"helvetica",fontSize:8,textColor:light,fillColor:[18,18,18],cellPadding:2.8,lineColor:[28,28,28],lineWidth:0.3,valign:"top"},
+    headStyles:{fillColor:[14,14,14],textColor:[70,65,62],fontSize:6.5,fontStyle:"bold"},
+    columnStyles:{0:{cellWidth:26,fontStyle:"bold",textColor:[170,162,148]},1:{cellWidth:20,textColor:[100,95,90]},
+      2:{cellWidth:20},3:{cellWidth:20},4:{cellWidth:22,textColor:orange,fontStyle:"bold"},
+      5:{cellWidth:18,halign:"center",textColor:orange},6:{cellWidth:16,halign:"center",textColor:orange},7:{cellWidth:"auto",textColor:[155,148,138],fontSize:7.5}},
+    alternateRowStyles:{fillColor:[20,20,20]},
+    didParseCell:d=>{if(d.section==="body"&&d.row.index>=5&&d.column.index===0)d.cell.styles.textColor=[75,70,66]}
+  });
+
+  const at=doc.lastAutoTable.finalY+4,remH=H-at-14,half=(W-20)/2;
+  const tot=weekTotal(days);
+  doc.setFillColor(...cardBg);doc.roundedRect(8,at,W-16,12,2,2,"F");
+  doc.setDrawColor(30,30,30);doc.roundedRect(8,at,W-16,12,2,2,"S");
+  [["TOTAL HOURS",tot>0?fmtH(tot):"—"],["DAYS WORKED",String(days.filter(d=>d.total!=null).length)],
+   ["ON CALL",String(days.filter(d=>d.onCall).length)],["LAHA",String(days.filter(d=>d.laha).length)]].forEach(([l,v],i)=>{
+    const x=14+(W-16)/4*i;
+    doc.setFont("helvetica","normal");doc.setFontSize(6);doc.setTextColor(80,75,70);doc.text(l,x,at+5);
+    doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(...orange);doc.text(v,x,at+10);
+  });
+
+  const st=at+16;
+  doc.setFillColor(...cardBg);doc.roundedRect(8,st,half,remH-2,2,2,"F");
+  doc.setDrawColor(30,30,30);doc.roundedRect(8,st,half,remH-2,2,2,"S");
+  doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(...orange);doc.text("SIGNATURES",13,st+6);
+  [["EMPLOYEE NAME",document.getElementById("sig-en")?.value||""],
+   ["EMPLOYEE SIGNATURE",document.getElementById("sig-es")?.value||""],
+   ["CLIENT REP NAME",document.getElementById("sig-cr")?.value||""],
+   ["CLIENT SIGNATURE",document.getElementById("sig-cs")?.value||""]].forEach(([l,v],i)=>{
+    const y=st+12+i*((remH-14)/4);
+    doc.setFont("helvetica","normal");doc.setFontSize(6);doc.setTextColor(80,75,70);doc.text(l,13,y);
+    doc.setFont("helvetica","bold");doc.setFontSize(8.5);doc.setTextColor(...light);doc.text(v||"—",13,y+4.5);
+    doc.setDrawColor(30,30,30);doc.line(13,y+6,8+half-5,y+6);
+  });
+
+  doc.setFillColor(...cardBg);doc.roundedRect(8+half+4,st,half,remH-2,2,2,"F");
+  doc.setDrawColor(30,30,30);doc.roundedRect(8+half+4,st,half,remH-2,2,2,"S");
+  doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(...orange);doc.text("NOTES",8+half+9,st+6);
+  const notes=document.getElementById("sum-notes")?.value||"";
+  doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(...light);
+  doc.text(doc.splitTextToSize(notes||"No notes.",half-10),8+half+9,st+12);
+
+  doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.setTextColor(45,42,40);
+  doc.text("SPECIALISED CIVIL & ELECTRICAL PTY LTD  ·  ABN 56 627 507 028  ·  tweekes@scepl.com.au  ·  Billywillinga NSW 2795",W/2,H-3,{align:"center"});
+  doc.save(`SCE_${(meta.empName||"employee").replace(/\s+/g,"_")}_${meta.weekEnding||"week"}.pdf`);
+}
+
+</script>
+</body>
+</html>
